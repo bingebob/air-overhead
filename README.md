@@ -39,38 +39,74 @@ A real-time flight tracking application that displays aircraft in a user-defined
 
 ### Installation
 
-1. **Run the setup script** (this file creates all necessary files):
-   ```bash
-   python setup.py
-   ```
+#### Quick Install (Recommended)
 
-2. **Install Python dependencies**:
+**Windows:**
+```bash
+install.bat
+```
+
+**Linux/macOS:**
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+#### Manual Installation
+
+1. **Install Python dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Create credentials file**:
+2. **Set up configuration files**:
    ```bash
+   # Copy credential templates
    cp credentials.json.example credentials.json
+   cp vestaboard_config.json.example vestaboard_config.json
    ```
    
-   Edit `credentials.json` with your OpenSky credentials:
+3. **Edit configuration files**:
+   
+   **OpenSky credentials** (`credentials.json`):
    ```json
    {
        "username": "your_opensky_username",
        "password": "your_opensky_password"
    }
    ```
+   
+   **Vestaboard configuration** (`vestaboard_config.json`):
+   ```json
+   {
+     "vestaboard": {
+       "localUrl": "http://192.168.1.70:7000",
+       "apiKey": "your_vestaboard_api_key_here",
+       "enablementToken": "your_enablement_token_here"
+     }
+   }
+   ```
 
 ### Running the Application
 
+#### Quick Start
+```bash
+python run.py
+```
+
+This will:
+- Start the Flask backend server
+- Automatically open your web browser to the application
+- Display the flight tracking interface
+
+#### Manual Start
 1. **Start the Flask backend**:
    ```bash
    python app.py
    ```
 
 2. **Open the frontend**:
-   Open `index.html` in your web browser
+   Open `index.html` in your web browser or go to `http://localhost:5000`
 
 3. **Start tracking flights**:
    - Set your location (or click "📍 My Location")
