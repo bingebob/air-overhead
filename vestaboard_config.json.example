@@ -1,0 +1,9 @@
+{
+  "vestaboard": {
+    "localUrl": "http://192.168.1.70:7000",
+    "apiKey": "your_vestaboard_api_key_here",
+    "enablementToken": "your_enablement_token_here",
+    "readEndpoint": "/local-api/message",
+    "writeEndpoint": "/local-api/message"
+  }
+} 

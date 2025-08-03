@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Flight Tracker</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            line-height: 1.6;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            height: 100vh;
+        }
+
+        .sidebar {
+            background: #2d2d2d;
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 2px solid #404040;
+        }
+
+        .map-container {
+            position: relative;
+            height: 300px; /* Smaller map */
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .controls {
+            background: #404040;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .controls h2 {
+            margin-bottom: 15px;
+            color: #4CAF50;
+            font-size: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #cccccc;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background: #1a1a1a;
+            color: #ffffff;
+            font-size: 14px;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .status {
+            background: #404040;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .status.loading {
+            background: #2196F3;
+        }
+
+        .status.error {
+            background: #f44336;
+        }
+
+        .status.success {
+            background: #4CAF50;
+        }
+
+        .aircraft-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .aircraft-card {
+            background: #404040;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4CAF50;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .aircraft-card:hover {
+            transform: translateX(-5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .aircraft-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .aircraft-callsign {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .aircraft-country {
+            background: #666;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .aircraft-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #555;
+        }
+
+        .detail-label {
+            font-weight: 500;
+            color: #cccccc;
+        }
+
+        .detail-value {
+            color: #ffffff;
+            text-align: right;
+        }
+
+        .route-info {
+            background: #2d2d2d;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .route-text {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            color: #4CAF50;
+        }
+
+        .aircraft-info {
+            background: #2d2d2d;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .links {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .link-btn {
+            flex: 1;
+            padding: 6px 12px;
+            background: #2196F3;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 12px;
+            transition: background 0.3s;
+        }
+
+        .link-btn:hover {
+            background: #1976D2;
+        }
+
+        .show-more-btn {
+            background-color: #2d2d2d;
+            color: #cccccc;
+            border: 1px solid #555;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .loading-indicator {
+            color: #2196F3;
+            font-style: italic;
+        }
+
+        .unknown {
+            color: #ff9800;
+            font-style: italic;
+        }
+
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .auto-refresh input[type="checkbox"] {
+            width: auto;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .flight-info-section {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            
+            .sidebar {
+                height: auto;
+                max-height: 50vh;
+            }
+            
+            #map {
+                height: 50vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-content">
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+            <div class="flight-info-section">
+                <h2>Nearby Aircraft</h2>
+                <div id="aircraft-cards" class="aircraft-cards">
+                    <p style="text-align: center; color: #888; margin-top: 50px;">
+                        Searching for aircraft in your area...
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sidebar">
+            <div class="controls">
+                <h2>🛩️ Flight Tracker</h2>
+                
+                <div class="form-group">
+                    <label for="latitude">Latitude:</label>
+                    <input type="number" id="latitude" value="51.5995" step="0.0001" min="-90" max="90">
+                </div>
+                
+                <div class="form-group">
+                    <label for="longitude">Longitude:</label>
+                    <input type="number" id="longitude" value="-0.558" step="0.0001" min="-180" max="180">
+                </div>
+                
+                <div class="form-group">
+                    <label for="radius">Radius (km):</label>
+                    <input type="range" id="radius" value="3" min="1" max="50" step="1">
+                    <div style="text-align: center; margin-top: 5px;">
+                        <span id="radius-value">3</span> km
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button onclick="searchFlights()">🔍 Refresh</button>
+                </div>
+                
+                <div class="auto-refresh">
+                    <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()" checked>
+                    <label for="autoRefresh">Auto-refresh</label>
+                    <input type="number" id="refreshInterval" value="30" min="5" max="300" step="5" style="width: 60px; margin-left: 10px;" onchange="updateRefreshInterval()">
+                    <label for="refreshInterval" style="margin-left: 5px;">seconds</label>
+                </div>
+            </div>
+            
+            <div id="status" class="status">Searching for aircraft...</div>
+            
+            <div id="detailedFlightInfo">
+                <p style="text-align: center; color: #888; margin-top: 50px;">
+                    Select an aircraft to see detailed information.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+    <script>
+        // Global variables
+        let map;
+        let searchCircle;
+        let centerMarker;
+        let aircraftMarkers = [];
+        let currentFlights = [];
+        let autoRefreshInterval;
+        const BACKEND_URL = 'http://localhost:5000'; // Flask backend URL
+        
+        // Default location and radius
+        const DEFAULT_LATITUDE = 51.5995;
+        const DEFAULT_LONGITUDE = -0.558;
+        const DEFAULT_RADIUS = 3; // km
+
+        // Get latitude from input
+        function getLatitude() {
+            return parseFloat(document.getElementById('latitude').value);
+        }
+
+        // Get longitude from input
+        function getLongitude() {
+            return parseFloat(document.getElementById('longitude').value);
+        }
+
+        // Initialize the map
+        function initMap() {
+            const lat = getLatitude();
+            const lng = getLongitude();
+            map = L.map('map').setView([lat, lng], 12);
+            
+            // Add tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Add center marker and radius circle
+            updateMapCenter();
+            
+            // Update radius display when slider changes
+            document.getElementById('radius').addEventListener('input', function() {
+                document.getElementById('radius-value').textContent = this.value;
+                updateMapCenter();
+            });
+        }
+
+        // Update map center and search circle
+        function updateMapCenter() {
+            const lat = getLatitude();
+            const lng = getLongitude();
+            const radius = parseInt(document.getElementById('radius').value);
+            
+            // Remove existing markers and circle
+            if (centerMarker) map.removeLayer(centerMarker);
+            if (searchCircle) map.removeLayer(searchCircle);
+            
+            // Add new center marker
+            centerMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'center-marker',
+                    html: '📍',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                })
+            }).addTo(map);
+            
+            // Add search circle
+            searchCircle = L.circle([lat, lng], {
+                radius: radius * 1000, // Convert km to meters
+                fillColor: '#4CAF50',
+                fillOpacity: 0.1,
+                color: '#4CAF50',
+                weight: 2
+            }).addTo(map);
+            
+            // Fit map to circle
+            map.fitBounds(searchCircle.getBounds());
+        }
+
+        // Update status message
+        function updateStatus(message, type = '') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+        }
+
+        // Search for flights using OpenSky API through backend
+        async function searchFlights() {
+            const radius = parseInt(document.getElementById('radius').value);
+            const lat = getLatitude();
+            const lng = getLongitude();
+            
+            updateStatus('Searching for aircraft...', 'loading');
+            updateMapCenter();
+            
+            // Clear existing aircraft markers
+            aircraftMarkers.forEach(marker => map.removeLayer(marker));
+            aircraftMarkers = [];
+            
+            try {
+                // Fetch flights from backend API - updated URL
+                const url = `${BACKEND_URL}/api/aircraft?lat=${lat}&lon=${lng}&radius=${radius}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data || data.length === 0) {
+                    updateStatus('No aircraft found in this area', 'error');
+                    document.getElementById('aircraft-cards').innerHTML = '<p style="text-align: center; color: #888;">No aircraft found in the specified area.</p>';
+                    return;
+                }
+                
+                currentFlights = data;
+                updateStatus(`Found ${data.length} aircraft`, 'success');
+                displayAircraftCards(data);
+                addAircraftToMap(data);
+                
+            } catch (error) {
+                console.error('Error fetching aircraft:', error);
+                updateStatus('Error fetching aircraft: ' + error.message, 'error');
+            }
+        }
+        
+        // Fallback to direct OpenSky API if backend is not available
+        async function searchDirectOpenSky() {
+            const radius = parseInt(document.getElementById('radius').value);
+            const lat = getLatitude();
+            const lng = getLongitude();
+            
+            try {
+                // Calculate bounding box for the search area
+                const bbox = calculateBoundingBox(lat, lng, radius);
+                
+                // Fetch flights from OpenSky API directly
+                const url = `https://opensky-network.org/api/states/all?lamin=${bbox.minLat}&lomin=${bbox.minLng}&lamax=${bbox.maxLat}&lomax=${bbox.maxLng}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.states || data.states.length === 0) {
+                    updateStatus('No aircraft found in this area', 'error');
+                    document.getElementById('aircraft-cards').innerHTML = '<p style="text-align: center; color: #888;">No aircraft found in the specified area.</p>';
+                    return;
+                }
+                
+                // Filter flights within the exact radius
+                const flights = data.states.filter(state => {
+                    if (!state[6] || !state[5]) return false; // Skip if no coordinates
+                    const distance = calculateDistance(lat, lng, state[6], state[5]);
+                    return distance <= radius;
+                });
+                
+                // Convert to a format similar to what we'd expect from the backend
+                const formattedFlights = flights.map(flight => ({
+                    icao24: flight[0],
+                    callsign: flight[1] ? flight[1].trim() : null,
+                    country: flight[2],
+                    longitude: flight[5],
+                    latitude: flight[6],
+                    altitude: flight[7] ? flight[7] * 3.28084 : null, // Convert m to feet
+                    speed: flight[9] ? flight[9] * 1.94384 : null, // Convert m/s to knots
+                    heading: flight[10],
+                    verticalRate: flight[11] ? flight[11] * 196.85 : null, // Convert m/s to ft/min
+                    onGround: flight[8],
+                    lastUpdate: flight[3]
+                }));
+                
+                currentFlights = formattedFlights;
+                updateStatus(`Found ${formattedFlights.length} aircraft (direct API)`, 'success');
+                displayAircraftCards(formattedFlights);
+                addAircraftToMap(formattedFlights);
+                
+            } catch (error) {
+                console.error('Error in fallback:', error);
+                updateStatus('All attempts to fetch aircraft failed', 'error');
+                document.getElementById('aircraft-cards').innerHTML = '<p style="text-align: center; color: #888;">Could not retrieve aircraft data. Please try again later.</p>';
+            }
+        }
+
+        // Calculate bounding box for the search area
+        function calculateBoundingBox(lat, lng, radiusKm) {
+            const latDelta = radiusKm / 111.32; // Approximate km per degree of latitude
+            const lngDelta = radiusKm / (111.32 * Math.cos(lat * Math.PI / 180)); // Adjust for longitude
+            
+            return {
+                minLat: lat - latDelta,
+                maxLat: lat + latDelta,
+                minLng: lng - lngDelta,
+                maxLng: lng + lngDelta
+            };
+        }
+
+        // Calculate distance between two points in kilometers
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in kilometers
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Add aircraft markers to the map
+        function addAircraftToMap(aircraft) {
+            aircraft.forEach((aircraft, index) => {
+                if (!aircraft.latitude || !aircraft.longitude) return; // Skip if no coordinates
+                
+                const lat = typeof aircraft.latitude === 'number' ? aircraft.latitude : parseFloat(aircraft.latitude);
+                const lng = typeof aircraft.longitude === 'number' ? aircraft.longitude : parseFloat(aircraft.longitude);
+                
+                if (isNaN(lat) || isNaN(lng)) return; // Skip if invalid coordinates
+                
+                const marker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        className: 'aircraft-marker',
+                        html: '✈️',
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10]
+                    })
+                }).addTo(map);
+                
+                // Add popup with basic info
+                const callsign = aircraft.callsign || 'Unknown';
+                const altitude = aircraft.altitude ? `${Math.round(aircraft.altitude)} ft` : 'Unknown';
+                const speed = aircraft.speed ? `${Math.round(aircraft.speed)} knots` : 'Unknown';
+                
+                marker.bindPopup(`
+                    <strong>${callsign}</strong><br>
+                    Altitude: ${altitude}<br>
+                    Speed: ${speed}<br>
+                    ICAO24: ${aircraft.icao24}
+                `);
+                
+                marker.on('click', () => {
+                    showAircraftDetails(aircraft);
+                });
+                
+                aircraftMarkers.push(marker);
+            });
+        }
+
+        // Display aircraft in cards
+        function displayAircraftCards(aircraft) {
+            const container = document.getElementById('aircraft-cards');
+            container.innerHTML = '';
+            
+            // Sort by altitude (descending)
+            const sortedAircraft = [...aircraft].sort((a, b) => {
+                const altA = a.altitude || 0;
+                const altB = b.altitude || 0;
+                return altB - altA;
+            });
+            
+            // Display up to 3 cards by default
+            const displayCount = Math.min(3, sortedAircraft.length);
+            
+            for (let i = 0; i < displayCount; i++) {
+                const card = createAircraftCard(sortedAircraft[i], i);
+                container.appendChild(card);
+            }
+            
+            // Add "Show More" button if there are more aircraft
+            if (sortedAircraft.length > displayCount) {
+                const showMoreBtn = document.createElement('button');
+                showMoreBtn.className = 'show-more-btn';
+                showMoreBtn.textContent = `Show ${sortedAircraft.length - displayCount} More Aircraft`;
+                showMoreBtn.addEventListener('click', () => {
+                    container.innerHTML = '';
+                    sortedAircraft.forEach((aircraft, index) => {
+                        const card = createAircraftCard(aircraft, index);
+                        container.appendChild(card);
+                    });
+                });
+                container.appendChild(showMoreBtn);
+            }
+        }
+
+        // Create a card for an aircraft
+        function createAircraftCard(aircraft, index) {
+            const card = document.createElement('div');
+            card.className = 'aircraft-card';
+            card.dataset.icao = aircraft.icao24;
+            
+            const callsign = aircraft.callsign || 'Unknown';
+            const altitude = aircraft.altitude ? `${Math.round(aircraft.altitude)} ft` : 'Unknown';
+            const speed = aircraft.speed ? `${Math.round(aircraft.speed)} knots` : 'Unknown';
+            const heading = aircraft.heading ? `${Math.round(aircraft.heading)}°` : 'Unknown';
+            
+            // Highlighted information as per requirements
+            card.innerHTML = `
+                <div class="aircraft-header">
+                    <div class="aircraft-callsign">${callsign}</div>
+                    <div class="aircraft-country">${aircraft.country || 'Unknown'}</div>
+                    <div class="aircraft-icao">ICAO24: <span class="icao24-value">${aircraft.icao24}</span></div>
+                </div>
+                
+                <div class="aircraft-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Flight Number:</span>
+                        <span class="detail-value loading-indicator">Loading...</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Manufacturer:</span>
+                        <span class="detail-value loading-indicator">Loading...</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Model:</span>
+                        <span class="detail-value loading-indicator">Loading...</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Route:</span>
+                        <span class="detail-value loading-indicator">Loading...</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Altitude:</span>
+                        <span class="detail-value">${altitude}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Speed:</span>
+                        <span class="detail-value">${speed}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Heading:</span>
+                        <span class="detail-value">${heading}</span>
+                    </div>
+                </div>
+                
+                <button class="link-btn" onclick="showAircraftDetails('${aircraft.icao24}')">View Details</button>
+            `;
+            
+            // Fetch additional details for this aircraft
+            fetchAircraftDetails(aircraft.icao24, card);
+            
+            return card;
+        }
+
+        // Fetch additional aircraft details
+        async function fetchAircraftDetails(icao24, cardElement) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/aircraft/details?icao24=${icao24}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                updateCardWithDetails(cardElement, data);
+                
+            } catch (error) {
+                console.error(`Error fetching details for ${icao24}:`, error);
+                updateCardWithError(cardElement);
+            }
+        }
+
+        // Update card with fetched aircraft details
+        function updateCardWithDetails(cardElement, data) {
+            if (!cardElement) return;
+            
+            const detailElements = cardElement.querySelectorAll('.detail-item');
+            
+            // Update Flight Number
+            updateDetailItem(detailElements[0], 'Flight Number:', data.meta?.flightNumber || 'N/A');
+            
+            // Update Manufacturer
+            updateDetailItem(detailElements[1], 'Manufacturer:', data.meta?.manufacturer || 'Unknown');
+            
+            // Update Model
+            updateDetailItem(detailElements[2], 'Model:', data.meta?.model || 'Unknown');
+            
+            // Update Route
+            let routeText = 'Unknown';
+            if (data.route?.from && data.route?.to) {
+                routeText = `${data.route.from} → ${data.route.to}`;
+            }
+            updateDetailItem(detailElements[3], 'Route:', routeText);
+        }
+
+        // Update a detail item with new value
+        function updateDetailItem(element, label, value) {
+            if (!element) return;
+            
+            const labelElement = element.querySelector('.detail-label');
+            const valueElement = element.querySelector('.detail-value');
+            
+            if (labelElement) labelElement.textContent = label;
+            if (valueElement) {
+                valueElement.textContent = value;
+                valueElement.classList.remove('loading-indicator');
+                if (value === 'Unknown' || value === 'N/A') {
+                    valueElement.classList.add('unknown');
+                }
+            }
+        }
+
+        // Update card when details fetch fails
+        function updateCardWithError(cardElement) {
+            if (!cardElement) return;
+            
+            const detailElements = cardElement.querySelectorAll('.detail-item');
+            
+            // Update all loading indicators to show error
+            for (let i = 0; i < 4; i++) {
+                const valueElement = detailElements[i]?.querySelector('.detail-value');
+                if (valueElement && valueElement.classList.contains('loading-indicator')) {
+                    valueElement.textContent = 'Error loading';
+                    valueElement.classList.remove('loading-indicator');
+                    valueElement.classList.add('unknown');
+                }
+            }
+        }
+
+        // Show detailed aircraft information in the sidebar
+        function showAircraftDetails(icao24) {
+            const detailsContainer = document.getElementById('detailedFlightInfo');
+            detailsContainer.innerHTML = '<div class="loading-indicator">Loading detailed information...</div>';
+            
+            if (typeof icao24 === 'object') {
+                // If an aircraft object was passed instead of an icao24 string
+                displayAircraftDetails(icao24);
+                return;
+            }
+            
+            fetch(`${BACKEND_URL}/api/aircraft/details?icao24=${icao24}`)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    displayAircraftDetails(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching aircraft details:', error);
+                    detailsContainer.innerHTML = `
+                        <div class="status error">Error loading details: ${error.message}</div>
+                        <p>Could not retrieve detailed information for this aircraft.</p>
+                    `;
+                });
+        }
+
+        // Display detailed aircraft information
+        function displayAircraftDetails(data) {
+            const detailsContainer = document.getElementById('detailedFlightInfo');
+            
+            // Handle case where data is a raw aircraft object instead of API response
+            if (data.icao24 && !data.meta) {
+                const basicInfo = `
+                    <h2>Aircraft Details</h2>
+                    <div class="aircraft-card">
+                        <div class="aircraft-header">
+                            <div class="aircraft-callsign">${data.callsign || 'Unknown'}</div>
+                            <div class="aircraft-country">${data.country || 'Unknown'}</div>
+                        </div>
+                        
+                        <div class="aircraft-details">
+                            <div class="detail-item">
+                                <span class="detail-label">ICAO24:</span>
+                                <span class="detail-value">${data.icao24}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Altitude:</span>
+                                <span class="detail-value">${data.altitude ? Math.round(data.altitude) + ' ft' : 'Unknown'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Speed:</span>
+                                <span class="detail-value">${data.speed ? Math.round(data.speed) + ' knots' : 'Unknown'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Heading:</span>
+                                <span class="detail-value">${data.heading ? Math.round(data.heading) + '°' : 'Unknown'}</span>
+                            </div>
+                        </div>
+                        
+                        <p class="status">Limited information available. Backend connection may be unavailable.</p>
+                    </div>
+                `;
+                
+                detailsContainer.innerHTML = basicInfo;
+                return;
+            }
+            
+            // Handle API response data
+            const meta = data.meta || {};
+            const route = data.route || {};
+            
+            const detailsHTML = `
+                <h2>Aircraft Details</h2>
+                <div class="aircraft-card">
+                    <div class="aircraft-header">
+                        <div class="aircraft-callsign">${meta.callsign || 'Unknown'}</div>
+                        <div class="aircraft-country">${meta.country || 'Unknown'}</div>
+                    </div>
+                    
+                    <div class="route-info">
+                        <div class="route-text">${route.from || 'Unknown'} → ${route.to || 'Unknown'}</div>
+                        <div style="text-align: center; margin-top: 5px; font-size: 12px;">
+                            ${route.departureTime ? 'Departed: ' + new Date(route.departureTime).toLocaleTimeString() : ''}
+                            ${route.arrivalTime ? ' | Arrival: ' + new Date(route.arrivalTime).toLocaleTimeString() : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="aircraft-info">
+                        <div class="detail-item">
+                            <span class="detail-label">Flight Number:</span>
+                            <span class="detail-value">${meta.flightNumber || 'N/A'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Manufacturer:</span>
+                            <span class="detail-value">${meta.manufacturer || 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Model:</span>
+                            <span class="detail-value">${meta.model || 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Registration:</span>
+                            <span class="detail-value">${meta.registration || 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Operator:</span>
+                            <span class="detail-value">${meta.operator || 'Unknown'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="aircraft-details">
+                        <div class="detail-item">
+                            <span class="detail-label">ICAO24:</span>
+                            <span class="detail-value">${data.icao24}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Altitude:</span>
+                            <span class="detail-value">${meta.altitude ? Math.round(meta.altitude) + ' ft' : 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Speed:</span>
+                            <span class="detail-value">${meta.speed ? Math.round(meta.speed) + ' knots' : 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Heading:</span>
+                            <span class="detail-value">${meta.heading ? Math.round(meta.heading) + '°' : 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Vertical Rate:</span>
+                            <span class="detail-value">${meta.verticalRate ? Math.round(meta.verticalRate) + ' ft/min' : 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">On Ground:</span>
+                            <span class="detail-value">${meta.onGround ? 'Yes' : 'No'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="links">
+                        <a href="https://opensky-network.org/aircraft-profile?icao24=${data.icao24}" target="_blank" class="link-btn">
+                            OpenSky Profile
+                        </a>
+                        <a href="https://flightaware.com/live/flight/${meta.callsign}" target="_blank" class="link-btn">
+                            FlightAware
+                        </a>
+                    </div>
+                </div>
+            `;
+            
+            detailsContainer.innerHTML = detailsHTML;
+        }
+
+        // Toggle auto-refresh
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            const intervalInput = document.getElementById('refreshInterval');
+            
+            if (checkbox.checked) {
+                const interval = parseInt(intervalInput.value) * 1000; // Convert seconds to milliseconds
+                searchFlights(); // Immediate search
+                autoRefreshInterval = setInterval(searchFlights, interval);
+                updateStatus(`Auto-refresh enabled (${intervalInput.value}s)`, 'success');
+            } else {
+                clearInterval(autoRefreshInterval);
+                updateStatus('Auto-refresh disabled', '');
+            }
+        }
+
+        // Update refresh interval value
+        function updateRefreshInterval() {
+            const checkbox = document.getElementById('autoRefresh');
+            const intervalInput = document.getElementById('refreshInterval');
+            const interval = parseInt(intervalInput.value);
+            
+            if (interval < 5 || interval > 300) {
+                updateStatus('Please enter a valid interval (5-300 seconds)', 'error');
+                intervalInput.value = '30'; // Reset to default
+                return;
+            }
+            
+            // If auto-refresh is currently enabled, restart it with new interval
+            if (checkbox.checked) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = setInterval(searchFlights, interval * 1000);
+                updateStatus(`Auto-refresh updated to ${interval} seconds`, 'success');
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            searchFlights(); // Initial search
+            toggleAutoRefresh(); // Start auto-refresh
+        });
+    </script>
+</body>
+</html>

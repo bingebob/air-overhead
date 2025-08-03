@@ -1,0 +1,1920 @@
+<!-- 
+ENHANCED FLIGHT TRACKER - DEVELOPMENT VERSION v2.0
+Date: 2025-07-26
+Status: DEVELOPMENT - NEW FEATURES
+
+WORKING FEATURES (from v1.0):
+✅ Aircraft detection and positioning
+✅ Basic flight data (altitude, speed, heading, distance)
+✅ Enhanced metadata from hexdb API (manufacturer, model, registration, owner)
+✅ Unified interface layout
+✅ Auto-refresh with configurable intervals
+✅ Manual refresh functionality
+✅ Map integration with aircraft markers
+✅ Detailed aircraft view in sidebar
+
+NEW FEATURES TO ADD:
+🚀 [NEW FUNCTIONALITY TO BE ADDED HERE]
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Flight Tracker v2.0 (Development)</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            line-height: 1.6;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        .map-section {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .resizer {
+            width: 8px;
+            background: #404040;
+            cursor: col-resize;
+            position: relative;
+            transition: background 0.2s;
+        }
+
+        .resizer:hover {
+            background: #4CAF50;
+        }
+
+        .resizer::after {
+            content: '⋮';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #888;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .resizer:hover::after {
+            color: #4CAF50;
+        }
+
+        /* Resizing state */
+        body.resizing {
+            cursor: col-resize;
+            user-select: none;
+        }
+
+        body.resizing * {
+            cursor: col-resize !important;
+        }
+
+        /* Flight info section styling */
+        .flight-info-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #404040;
+        }
+
+        .flight-info-section h2 {
+            color: #4CAF50;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .sidebar {
+            background: #2d2d2d;
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 2px solid #404040;
+            width: 450px;
+            min-width: 300px;
+            max-width: 600px;
+        }
+
+        .map-container {
+            position: relative;
+            height: 100%;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .controls {
+            background: #404040;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .controls h2 {
+            margin-bottom: 15px;
+            color: #4CAF50;
+            font-size: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .coords-group {
+            display: flex;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .coord-input {
+            flex: 1;
+        }
+
+        .coord-input label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #cccccc;
+            font-size: 12px;
+        }
+
+        .coord-input input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background: #1a1a1a;
+            color: #ffffff;
+            font-size: 12px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #cccccc;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background: #1a1a1a;
+            color: #ffffff;
+            font-size: 14px;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .status {
+            background: #404040;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .status.loading {
+            background: #2196F3;
+        }
+
+        .status.error {
+            background: #f44336;
+        }
+
+        .status.success {
+            background: #4CAF50;
+        }
+
+        .aircraft-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .aircraft-card {
+            background: #404040;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4CAF50;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .aircraft-card:hover {
+            transform: translateX(-5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .aircraft-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .aircraft-callsign {
+            font-size: 18px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .aircraft-country {
+            background: #666;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .aircraft-icao {
+            background: #333;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #ccc;
+        }
+
+        .aircraft-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #555;
+        }
+
+        .detail-label {
+            font-weight: 500;
+            color: #cccccc;
+        }
+
+        .detail-value {
+            color: #ffffff;
+            text-align: right;
+        }
+
+        .links {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .link-btn {
+            flex: 1;
+            padding: 6px 12px;
+            background: #2196F3;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 12px;
+            transition: background 0.3s;
+        }
+
+        .link-btn:hover {
+            background: #1976D2;
+        }
+
+        .show-more-btn {
+            background-color: #2d2d2d;
+            color: #cccccc;
+            border: 1px solid #555;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .loading-indicator {
+            color: #2196F3;
+            font-style: italic;
+        }
+
+        .unknown {
+            color: #ff9800;
+            font-style: italic;
+        }
+
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .auto-refresh input[type="checkbox"] {
+            width: auto;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .flight-info-section {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .enhanced-features {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .enhanced-features h3 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+
+        .version-info {
+            background: #2d2d2d;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            border-left: 3px solid #FF9800;
+            cursor: pointer;
+        }
+
+        .version-info h4 {
+            color: #FF9800;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .version-info h4::after {
+            content: '▼';
+            font-size: 12px;
+            transition: transform 0.3s;
+        }
+
+        .version-info.collapsed h4::after {
+            transform: rotate(-90deg);
+        }
+
+        .version-info .content {
+            display: block;
+            transition: max-height 0.3s ease-out;
+            overflow: hidden;
+            max-height: 200px;
+        }
+
+        .version-info.collapsed .content {
+            max-height: 0;
+        }
+
+        .enhanced-features {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+
+        .enhanced-features h3 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .enhanced-features h3::after {
+            content: '▼';
+            font-size: 12px;
+            transition: transform 0.3s;
+        }
+
+        .enhanced-features.collapsed h3::after {
+            transform: rotate(-90deg);
+        }
+
+        .enhanced-features .content {
+            display: block;
+            transition: max-height 0.3s ease-out;
+            overflow: hidden;
+            max-height: 200px;
+        }
+
+        .enhanced-features.collapsed .content {
+            max-height: 0;
+        }
+
+        .aircraft-marker-geofence {
+            background: none;
+            border: none;
+            filter: drop-shadow(0 0 8px #4CAF50) brightness(1.3);
+            font-size: 20px;
+        }
+        
+        .aircraft-marker-geofence {
+            transition: all 0.3s ease-out !important;
+        }
+        
+        .aircraft-marker-geofence div {
+            transition: transform 0.3s ease-out;
+        }
+        
+        .aircraft-marker-view {
+            background: none;
+            border: none;
+            filter: drop-shadow(0 0 6px #2196F3) brightness(1.2);
+            opacity: 0.9;
+            font-size: 18px;
+            transition: all 0.3s ease-out !important;
+        }
+        
+        .aircraft-marker-view div {
+            transition: transform 0.3s ease-out;
+        }
+
+        .aircraft-label-geofence {
+            background: rgba(76, 175, 80, 0.9) !important;
+            color: white !important;
+            border: 2px solid #4CAF50 !important;
+            border-radius: 4px !important;
+            padding: 2px 6px !important;
+            font-size: 11px !important;
+            font-weight: bold !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+        }
+
+        .aircraft-label-view {
+            background: rgba(33, 150, 243, 0.9) !important;
+            color: white !important;
+            border: 2px solid #2196F3 !important;
+            border-radius: 4px !important;
+            padding: 2px 6px !important;
+            font-size: 10px !important;
+            font-weight: bold !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+        }
+
+        .aircraft-card.compact {
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .aircraft-details-compact {
+            margin: 8px 0;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 12px;
+        }
+
+        .detail-row .detail-label {
+            color: #888;
+            font-weight: 500;
+            min-width: 50px;
+        }
+
+        .detail-row .detail-value {
+            color: #fff;
+            font-weight: 400;
+        }
+
+        .link-btn.compact {
+            padding: 5px 10px;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+
+        .center-marker {
+            background: none;
+            border: none;
+            cursor: grab;
+            transition: transform 0.2s;
+        }
+        
+        .center-marker:hover {
+            transform: scale(1.1);
+        }
+        
+        .center-marker:active {
+            cursor: grabbing;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            
+            .sidebar {
+                height: auto;
+                max-height: 50vh;
+            }
+            
+            #map {
+                height: 50vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="map-section">
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+        
+        <div class="resizer" id="resizer"></div>
+        
+        <div class="sidebar">
+            <div class="controls">
+                <h2>🛩️ Enhanced Flight Tracker v2.0</h2>
+                
+                <div class="form-group coords-group">
+                    <div class="coord-input">
+                        <label for="latitude">Lat:</label>
+                        <input type="number" id="latitude" value="51.5995" step="0.0001" min="-90" max="90">
+                    </div>
+                    <div class="coord-input">
+                        <label for="longitude">Lon:</label>
+                        <input type="number" id="longitude" value="-0.558" step="0.0001" min="-180" max="180">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <button onclick="goHome()" style="background: #2196F3; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%; margin-top: 5px;">🏠 Home</button>
+                </div>
+                
+                <div class="form-group">
+                    <label for="radius">Radius (km):</label>
+                    <input type="range" id="radius" value="3" min="1" max="50" step="1">
+                    <div style="text-align: center; margin-top: 5px;">
+                        <span id="radius-value">3</span> km
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button onclick="searchFlights()" style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px;">🔍 Refresh Now</button>
+                    <button onclick="window.open('enhanced_v1_working.html', '_blank')">📄 v1.0 Stable</button>
+                </div>
+                
+                <div class="auto-refresh">
+                    <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()" checked>
+                    <label for="autoRefresh">Auto-refresh</label>
+                    <input type="number" id="refreshInterval" value="1" min="1" max="300" step="1" style="width: 60px; margin-left: 10px;" onchange="updateRefreshInterval()">
+                    <label for="refreshInterval" style="margin-left: 5px;">seconds</label>
+                </div>
+            </div>
+            
+            <div id="status" class="status">Searching for aircraft...</div>
+            
+            <div id="detailedFlightInfo">
+                <p style="text-align: center; color: #888; margin-top: 50px;">
+                    Select an aircraft to see enhanced detailed information.
+                </p>
+            </div>
+            
+            <div class="flight-info-section">
+                <h2>Enhanced Aircraft Tracking v2.0</h2>
+                <div class="version-info collapsed">
+                    <h4>🚀 Development Version</h4>
+                    <div class="content">
+                        <p>Based on v1.0 working features. Ready for new functionality.</p>
+                    </div>
+                </div>
+                <div class="enhanced-features collapsed">
+                    <h3>✅ Working Features (v1.0)</h3>
+                    <div class="content">
+                        <p>• Aircraft detection and positioning</p>
+                        <p>• Enhanced metadata from public APIs</p>
+                        <p>• Unified interface layout</p>
+                        <p>• Configurable auto-refresh</p>
+                    </div>
+                </div>
+                <div id="aircraft-cards" class="aircraft-cards">
+                    <p style="text-align: center; color: #888; margin-top: 50px;">
+                        Searching for aircraft in your area...
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+    <script>
+
+
+        // Get latitude from input
+        function getLatitude() {
+            return parseFloat(document.getElementById('latitude').value);
+        }
+
+        // Get longitude from input
+        function getLongitude() {
+            return parseFloat(document.getElementById('longitude').value);
+        }
+
+        // Go to home coordinates
+        function goHome() {
+            document.getElementById('latitude').value = '51.5995';
+            document.getElementById('longitude').value = '-0.5545';
+            updateMapCenter();
+            searchFlights();
+        }
+
+        // Initialize collapsible sections
+        function initCollapsible() {
+            document.querySelectorAll('.version-info, .enhanced-features').forEach(section => {
+                section.addEventListener('click', function() {
+                    this.classList.toggle('collapsed');
+                });
+            });
+        }
+
+        // Initialize the map
+        function initMap() {
+            const lat = getLatitude();
+            const lng = getLongitude();
+            map = L.map('map').setView([lat, lng], 12);
+            
+            // Add tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Add center marker and radius circle
+            updateMapCenter();
+            
+            // Update radius display when slider changes
+            document.getElementById('radius').addEventListener('input', function() {
+                document.getElementById('radius-value').textContent = this.value;
+                updateMapCenter();
+            });
+        }
+
+        // Update map center and search circles
+        function updateMapCenter() {
+            const lat = getLatitude();
+            const lng = getLongitude();
+            const geofenceRadius = parseInt(document.getElementById('radius').value);
+            const viewRadius = 20; // 20km view radius
+            
+            // Remove existing markers and circles
+            if (centerMarker) map.removeLayer(centerMarker);
+            if (searchCircle) map.removeLayer(searchCircle);
+            if (viewCircle) map.removeLayer(viewCircle);
+            
+            // Add new center marker (draggable)
+            centerMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'center-marker',
+                    html: '📍',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                }),
+                draggable: true
+            }).addTo(map);
+            
+            // Handle center marker drag events
+            centerMarker.on('dragend', function(event) {
+                const newLat = event.target.getLatLng().lat;
+                const newLng = event.target.getLatLng().lng;
+                
+                // Update input fields
+                document.getElementById('latitude').value = newLat.toFixed(4);
+                document.getElementById('longitude').value = newLng.toFixed(4);
+                
+                // Update circles to new position
+                updateMapCenter();
+                
+                // Search for aircraft at new location
+                searchFlights();
+                
+                console.log(`📍 Center moved to: ${newLat.toFixed(4)}, ${newLng.toFixed(4)}`);
+            });
+            
+            // Add geofence circle (notification zone)
+            searchCircle = L.circle([lat, lng], {
+                radius: geofenceRadius * 1000, // Convert km to meters
+                fillColor: '#4CAF50',
+                fillOpacity: 0.2,
+                color: '#4CAF50',
+                weight: 3
+            }).addTo(map);
+            
+            // Add view circle (20km radius)
+            viewCircle = L.circle([lat, lng], {
+                radius: viewRadius * 1000, // Convert km to meters
+                fillColor: '#2196F3',
+                fillOpacity: 0.05,
+                color: '#2196F3',
+                weight: 1,
+                dashArray: '5, 5'
+            }).addTo(map);
+            
+            // Center map without changing zoom level
+            map.setView([lat, lng], map.getZoom());
+        }
+
+        // Update status message
+        function updateStatus(message, type = '') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+        }
+
+        // Search for flights using backend API
+        async function searchFlights() {
+            const geofenceRadius = parseInt(document.getElementById('radius').value);
+            const viewRadius = 20; // 20km view radius
+            const lat = getLatitude();
+            const lng = getLongitude();
+            
+            updateStatus('Searching for aircraft...', 'loading');
+            
+            // Only update map center on initial load, not during refreshes
+            if (!map.hasInitialized) {
+                updateMapCenter();
+                map.hasInitialized = true;
+            }
+            
+            try {
+                // Fetch aircraft within 20km for display
+                const url = `${BACKEND_URL}/api/aircraft?lat=${lat}&lon=${lng}&radius=${viewRadius}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const allAircraft = await response.json();
+                
+                if (!allAircraft || allAircraft.length === 0) {
+                    updateStatus('No aircraft found in this area', 'error');
+                    document.getElementById('aircraft-cards').innerHTML = '<p style="text-align: center; color: #888;">No aircraft found in the specified area.</p>';
+                    return;
+                }
+                
+                // Debug: Log all aircraft distances
+                console.log(`🗺️ Fetched ${allAircraft.length} aircraft from API (20km radius)`);
+                console.log(`📍 Center: ${lat}, ${lng}`);
+                console.log(`🔍 Requested radius: ${viewRadius}km`);
+                
+                allAircraft.forEach(aircraft => {
+                    if (aircraft.latitude && aircraft.longitude) {
+                        const distance = calculateDistance(lat, lng, aircraft.latitude, aircraft.longitude);
+                        console.log(`  ${aircraft.callsign || 'Unknown'} (${aircraft.icao24}): ${distance.toFixed(1)}km from center`);
+                    } else {
+                        console.log(`  ${aircraft.callsign || 'Unknown'} (${aircraft.icao24}): No position data`);
+                    }
+                });
+                
+                // Filter aircraft within geofence for notifications
+                const geofenceAircraft = allAircraft.filter(aircraft => {
+                    if (!aircraft.latitude || !aircraft.longitude) return false;
+                    const distance = calculateDistance(lat, lng, aircraft.latitude, aircraft.longitude);
+                    return distance <= geofenceRadius;
+                });
+                
+                currentFlights = allAircraft;
+                updateStatus(`Found ${allAircraft.length} aircraft (${geofenceAircraft.length} in geofence) - 20km search area`, 'success');
+                
+                // Check for new aircraft within geofence only
+                checkForNewAircraft(geofenceAircraft);
+                
+                displayAircraftCards(allAircraft);
+                addAircraftToMap(allAircraft, geofenceRadius);
+                
+            } catch (error) {
+                console.error('Error fetching aircraft:', error);
+                updateStatus('Error fetching aircraft: ' + error.message, 'error');
+            }
+        }
+
+        // Calculate distance between two points (Haversine formula)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in kilometers
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                     Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Update aircraft trail
+        function updateAircraftTrail(icao24, lat, lng, isInGeofence) {
+            const now = Date.now();
+            const maxTrailPoints = 8; // Reduced for smoother trails
+            const trailAge = 20000; // Trail points older than 20 seconds are removed
+            const trailUpdateInterval = 2000; // Update trail every 2 seconds
+            
+            if (!aircraftTrails[icao24]) {
+                aircraftTrails[icao24] = [];
+            }
+            
+            // Only update trail periodically to reduce visual noise
+            const lastUpdate = aircraftTrails[icao24].lastUpdate || 0;
+            if (now - lastUpdate < trailUpdateInterval) {
+                return;
+            }
+            
+            // Add new position to trail
+            aircraftTrails[icao24].push({
+                lat: lat,
+                lng: lng,
+                timestamp: now,
+                isInGeofence: isInGeofence
+            });
+            
+            // Remove old trail points
+            aircraftTrails[icao24] = aircraftTrails[icao24].filter(point => 
+                now - point.timestamp < trailAge
+            );
+            
+            // Limit trail length
+            if (aircraftTrails[icao24].length > maxTrailPoints) {
+                aircraftTrails[icao24] = aircraftTrails[icao24].slice(-maxTrailPoints);
+            }
+            
+            // Mark last update time
+            aircraftTrails[icao24].lastUpdate = now;
+        }
+
+        // Draw aircraft trail
+        function drawAircraftTrail(icao24, trail) {
+            // Remove existing trail
+            if (aircraftTrails[icao24 + '_polyline']) {
+                map.removeLayer(aircraftTrails[icao24 + '_polyline']);
+            }
+            
+            if (trail.length < 2) return;
+            
+            // Create trail coordinates
+            const coordinates = trail.map(point => [point.lat, point.lng]);
+            
+            // Determine base color based on geofence status
+            const baseColor = trail[trail.length - 1].isInGeofence ? '#4CAF50' : '#2196F3';
+            
+            // Create polyline with smoother effect
+            const polyline = L.polyline(coordinates, {
+                color: baseColor,
+                weight: 2,
+                opacity: 0.5,
+                smoothFactor: 2, // Increased for smoother curves
+                dashArray: '8, 4' // Slightly longer dashes for cleaner look
+            }).addTo(map);
+            
+            // Store reference to remove later
+            aircraftTrails[icao24 + '_polyline'] = polyline;
+        }
+
+        // Add aircraft markers to the map with smooth updates
+        function addAircraftToMap(aircraft, geofenceRadius) {
+            const centerLat = getLatitude();
+            const centerLng = getLongitude();
+            
+            // Create a map of existing markers by ICAO24
+            const existingMarkers = {};
+            aircraftMarkers.forEach(marker => {
+                if (marker.icao24) {
+                    existingMarkers[marker.icao24] = marker;
+                }
+            });
+            
+            // Clear existing markers array
+            aircraftMarkers = [];
+            
+            aircraft.forEach((aircraft, index) => {
+                if (!aircraft.latitude || !aircraft.longitude) return;
+                
+                const lat = typeof aircraft.latitude === 'number' ? aircraft.latitude : parseFloat(aircraft.latitude);
+                const lng = typeof aircraft.longitude === 'number' ? aircraft.longitude : parseFloat(aircraft.longitude);
+                
+                if (isNaN(lat) || isNaN(lng)) return;
+                
+                // Calculate distance from center
+                const distance = calculateDistance(centerLat, centerLng, lat, lng);
+                const isInGeofence = distance <= geofenceRadius;
+                
+                let marker;
+                
+                // Check if we have an existing marker for this aircraft
+                if (existingMarkers[aircraft.icao24]) {
+                    // Update existing marker position smoothly
+                    marker = existingMarkers[aircraft.icao24];
+                    
+                    // Use smooth transition for position updates
+                    const currentLatLng = marker.getLatLng();
+                    const newLatLng = [lat, lng];
+                    
+                    // Only update if position actually changed (prevents unnecessary updates)
+                    if (currentLatLng.lat !== lat || currentLatLng.lng !== lng) {
+                        marker.setLatLng(newLatLng);
+                    }
+                    
+                    // Update trail
+                    updateAircraftTrail(aircraft.icao24, lat, lng, isInGeofence);
+                    drawAircraftTrail(aircraft.icao24, aircraftTrails[aircraft.icao24] || []);
+                    
+                    // Update marker icon if geofence status changed or heading changed
+                    const currentIsInGeofence = distance <= geofenceRadius;
+                    const currentHeading = aircraft.heading || 0;
+                    const headingChanged = marker.lastHeading !== currentHeading;
+                    
+                    if (marker.isInGeofence !== currentIsInGeofence || headingChanged) {
+                        const rotation = `transform: rotate(${currentHeading}deg);`;
+                        const newIcon = currentIsInGeofence ? 
+                            L.divIcon({
+                                className: 'aircraft-marker-geofence',
+                                html: `<div style="${rotation}">🛩️</div>`,
+                                iconSize: [28, 28],
+                                iconAnchor: [14, 14]
+                            }) :
+                            L.divIcon({
+                                className: 'aircraft-marker-view',
+                                html: `<div style="${rotation}">✈️</div>`,
+                                iconSize: [24, 24],
+                                iconAnchor: [12, 12]
+                            });
+                        marker.setIcon(newIcon);
+                        marker.isInGeofence = currentIsInGeofence;
+                        marker.lastHeading = currentHeading;
+                    }
+                } else {
+                    // Create new marker with heading orientation
+                    const heading = aircraft.heading || 0;
+                    const rotation = `transform: rotate(${heading}deg);`;
+                    
+                    const markerIcon = isInGeofence ? 
+                        L.divIcon({
+                            className: 'aircraft-marker-geofence',
+                            html: `<div style="${rotation}">🛩️</div>`,
+                            iconSize: [28, 28],
+                            iconAnchor: [14, 14]
+                        }) :
+                        L.divIcon({
+                            className: 'aircraft-marker-view',
+                            html: `<div style="${rotation}">✈️</div>`,
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 12]
+                        });
+                    
+                    marker = L.marker([lat, lng], { icon: markerIcon }).addTo(map);
+                    marker.icao24 = aircraft.icao24;
+                    marker.isInGeofence = isInGeofence;
+                    marker.lastHeading = heading;
+                    
+                    // Initialize trail for new aircraft
+                    updateAircraftTrail(aircraft.icao24, lat, lng, isInGeofence);
+                    drawAircraftTrail(aircraft.icao24, aircraftTrails[aircraft.icao24] || []);
+                    
+                    // Add callsign label
+                    const callsign = aircraft.callsign || 'Unknown';
+                    const label = L.tooltip({
+                        permanent: true,
+                        direction: 'top',
+                        offset: [0, -35],
+                        className: isInGeofence ? 'aircraft-label-geofence' : 'aircraft-label-view'
+                    }).setContent(callsign);
+                    marker.bindTooltip(label);
+                    
+                    // Add popup with basic info
+                    const altitude = aircraft.altitude ? `${Math.round(aircraft.altitude)} ft` : 'Unknown';
+                    const speed = aircraft.speed ? `${Math.round(aircraft.speed)} knots` : 'Unknown';
+                    const distanceText = `${distance.toFixed(1)} km from center`;
+                    const geofenceStatus = isInGeofence ? '🟢 IN GEOFENCE' : '🔵 OUTSIDE GEOFENCE';
+                    
+                    marker.bindPopup(`
+                        <strong>${callsign}</strong><br>
+                        ${geofenceStatus}<br>
+                        Distance: ${distanceText}<br>
+                        Altitude: ${altitude}<br>
+                        Speed: ${speed}<br>
+                        ICAO24: ${aircraft.icao24}
+                    `);
+                    
+                    marker.on('click', () => {
+                        showAircraftDetails(aircraft);
+                    });
+                }
+                
+                aircraftMarkers.push(marker);
+            });
+            
+            // Remove markers that are no longer in the aircraft list
+            Object.values(existingMarkers).forEach(marker => {
+                if (!aircraft.find(a => a.icao24 === marker.icao24)) {
+                    map.removeLayer(marker);
+                    
+                    // Clean up trail for removed aircraft
+                    if (aircraftTrails[marker.icao24 + '_polyline']) {
+                        map.removeLayer(aircraftTrails[marker.icao24 + '_polyline']);
+                        delete aircraftTrails[marker.icao24 + '_polyline'];
+                    }
+                    delete aircraftTrails[marker.icao24];
+                }
+            });
+        }
+
+        // Display aircraft in cards (only geofence aircraft)
+        function displayAircraftCards(aircraft) {
+            const container = document.getElementById('aircraft-cards');
+            container.innerHTML = '';
+            
+            // Filter aircraft to only show those within geofence
+            const geofenceRadius = parseInt(document.getElementById('radius').value);
+            const centerLat = getLatitude();
+            const centerLng = getLongitude();
+            
+            const geofenceAircraft = aircraft.filter(aircraft => {
+                if (!aircraft.latitude || !aircraft.longitude) return false;
+                const distance = calculateDistance(centerLat, centerLng, aircraft.latitude, aircraft.longitude);
+                return distance <= geofenceRadius;
+            });
+            
+            if (geofenceAircraft.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #888;">No aircraft currently in geofence (2km radius)</p>';
+                return;
+            }
+            
+            // Sort by altitude (descending)
+            const sortedAircraft = [...geofenceAircraft].sort((a, b) => {
+                const altA = a.altitude || 0;
+                const altB = b.altitude || 0;
+                return altB - altA;
+            });
+            
+            // Display up to 5 cards by default (more compact)
+            const displayCount = Math.min(5, sortedAircraft.length);
+            
+            for (let i = 0; i < displayCount; i++) {
+                const card = createCompactAircraftCard(sortedAircraft[i], i);
+                container.appendChild(card);
+            }
+            
+            // Add "Show More" button if there are more aircraft
+            if (sortedAircraft.length > displayCount) {
+                const showMoreBtn = document.createElement('button');
+                showMoreBtn.className = 'show-more-btn';
+                showMoreBtn.textContent = `Show ${sortedAircraft.length - displayCount} More Aircraft`;
+                showMoreBtn.addEventListener('click', () => {
+                    container.innerHTML = '';
+                    sortedAircraft.forEach((aircraft, index) => {
+                        const card = createCompactAircraftCard(aircraft, index);
+                        container.appendChild(card);
+                    });
+                });
+                container.appendChild(showMoreBtn);
+            }
+        }
+
+        // Create a compact card for an aircraft
+        function createCompactAircraftCard(aircraft, index) {
+            const card = document.createElement('div');
+            card.className = 'aircraft-card compact';
+            card.dataset.icao = aircraft.icao24;
+            
+            const callsign = aircraft.callsign || 'Unknown';
+            const altitude = aircraft.altitude ? `${Math.round(aircraft.altitude)} ft` : 'Unknown';
+            const speed = aircraft.speed ? `${Math.round(aircraft.speed)} knots` : 'Unknown';
+            const heading = aircraft.heading ? `${Math.round(aircraft.heading)}°` : 'Unknown';
+            // Calculate distance from center
+            const centerLat = getLatitude();
+            const centerLng = getLongitude();
+            const distance = aircraft.latitude && aircraft.longitude ? 
+                `${calculateDistance(centerLat, centerLng, aircraft.latitude, aircraft.longitude).toFixed(1)} km` : 'Unknown';
+            
+            card.innerHTML = `
+                <div class="aircraft-header">
+                    <div class="aircraft-callsign">${callsign}</div>
+                    <div class="aircraft-country">${aircraft.country || 'Unknown'}</div>
+                </div>
+                
+                <div class="aircraft-details-compact">
+                    <div class="detail-row">
+                        <span class="detail-label">Alt:</span>
+                        <span class="detail-value">${altitude}</span>
+                        <span class="detail-label">Speed:</span>
+                        <span class="detail-value">${speed}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Heading:</span>
+                        <span class="detail-value">${heading}</span>
+                        <span class="detail-label">Dist:</span>
+                        <span class="detail-value">${distance}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">ICAO:</span>
+                        <span class="detail-value">${aircraft.icao24}</span>
+                    </div>
+                </div>
+                
+                <button class="link-btn compact" onclick="showAircraftDetails('${aircraft.icao24}')">Details</button>
+            `;
+            
+            return card;
+        }
+
+        // Create a card for an aircraft (original detailed version)
+        function createAircraftCard(aircraft, index) {
+            const card = document.createElement('div');
+            card.className = 'aircraft-card';
+            card.dataset.icao = aircraft.icao24;
+            
+            const callsign = aircraft.callsign || 'Unknown';
+            const altitude = aircraft.altitude ? `${Math.round(aircraft.altitude)} ft` : 'Unknown';
+            const speed = aircraft.speed ? `${Math.round(aircraft.speed)} knots` : 'Unknown';
+            const heading = aircraft.heading ? `${Math.round(aircraft.heading)}°` : 'Unknown';
+            
+            card.innerHTML = `
+                <div class="aircraft-header">
+                    <div class="aircraft-callsign">${callsign}</div>
+                    <div class="aircraft-country">${aircraft.country || 'Unknown'}</div>
+                    <div class="aircraft-icao">ICAO24: ${aircraft.icao24}</div>
+                </div>
+                
+                <div class="aircraft-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Flight Number:</span>
+                        <span class="detail-value loading-indicator">Loading...</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Manufacturer:</span>
+                        <span class="detail-value loading-indicator">Loading...</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Model:</span>
+                        <span class="detail-value loading-indicator">Loading...</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Registration:</span>
+                        <span class="detail-value loading-indicator">Loading...</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Registered Owner:</span>
+                        <span class="detail-value loading-indicator">Loading...</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Route:</span>
+                        <span class="detail-value loading-indicator">Loading...</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Altitude:</span>
+                        <span class="detail-value">${altitude}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Speed:</span>
+                        <span class="detail-value">${speed}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Heading:</span>
+                        <span class="detail-value">${heading}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Distance:</span>
+                        <span class="detail-value">${aircraft.distance ? aircraft.distance + ' km' : 'Unknown'}</span>
+                    </div>
+                </div>
+                
+                <button class="link-btn" onclick="showAircraftDetails('${aircraft.icao24}')">View Details</button>
+            `;
+            
+            // Fetch additional details for this aircraft
+            fetchAircraftDetails(aircraft.icao24, card);
+            
+            return card;
+        }
+
+        // Public ICAO lookup sources
+        const PUBLIC_LOOKUP_SOURCES = [
+            {
+                name: 'hexdb',
+                url: 'https://hexdb.io/api/v1/aircraft/{icao24}',
+                timeout: 5000
+            }
+        ];
+
+        // Fetch aircraft metadata from public sources
+        async function fetchPublicAircraftData(icao24) {
+            console.log(`🔍 Starting public lookup for ICAO24: ${icao24}`);
+            
+            for (const source of PUBLIC_LOOKUP_SOURCES) {
+                try {
+                    const url = source.url.replace('{icao24}', icao24);
+                    console.log(`Trying ${source.name}: ${url}`);
+                    
+                    // Try direct request first
+                    let response = await fetch(url, { 
+                        method: 'GET',
+                        mode: 'cors',
+                        timeout: source.timeout
+                    });
+                    
+                    if (!response.ok) {
+                        console.log(`${source.name} failed with status: ${response.status}`);
+                        continue;
+                    }
+                    
+                    const data = await response.json();
+                    console.log(`${source.name} raw response:`, JSON.stringify(data, null, 2));
+                    
+                    // Parse hexdb response
+                    if (source.name === 'hexdb') {
+                        // Check different possible response structures
+                        let aircraft = null;
+                        
+                        if (data.aircraft) {
+                            aircraft = data.aircraft;
+                            console.log(`Found aircraft in data.aircraft:`, aircraft);
+                        } else if (data.data && data.data.aircraft) {
+                            aircraft = data.data.aircraft;
+                            console.log(`Found aircraft in data.data.aircraft:`, aircraft);
+                        } else if (data.icao24 || data.ModeS) {
+                            // Data is at root level (this is what hexdb actually returns)
+                            aircraft = data;
+                            console.log(`Found aircraft in root data:`, aircraft);
+                        }
+                        
+                        if (aircraft) {
+                            const result = {
+                                manufacturer: aircraft.manufacturer || aircraft.Manufacturer,
+                                model: aircraft.type || aircraft.model || aircraft.aircraft_type || aircraft.Type || aircraft.ICAOTypeCode,
+                                registration: aircraft.registration || aircraft.reg || aircraft.Registration,
+                                operator: aircraft.operator || aircraft.owner || aircraft.RegisteredOwners,
+                                serialNumber: aircraft.serial_number || aircraft.serialnumber
+                            };
+                            console.log(`✅ Parsed hexdb data:`, result);
+                            return result;
+                        } else {
+                            console.log(`❌ Could not find aircraft data in hexdb response`);
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.log(`❌ Error fetching from ${source.name}:`, error);
+                    continue;
+                }
+            }
+            
+            console.log(`❌ No public data found for ${icao24}`);
+            return null;
+        }
+
+        // Enhanced fetch aircraft details with automatic public fallback
+        async function fetchAircraftDetails(icao24, cardElement) {
+            console.log(`🛩️ Fetching details for ICAO24: ${icao24}`);
+            
+            let backendData = null;
+            let publicData = null;
+            
+            try {
+                // First try backend API
+                console.log(`📡 Trying backend API...`);
+                const response = await fetch(`${BACKEND_URL}/api/aircraft/details?icao24=${icao24}`);
+                if (response.ok) {
+                    backendData = await response.json();
+                    console.log(`✅ Backend data received:`, backendData);
+                } else {
+                    console.log(`❌ Backend failed with status: ${response.status}`);
+                }
+            } catch (error) {
+                console.log(`❌ Backend error:`, error);
+            }
+
+            // Check if backendData is missing or incomplete
+            let needsPublicLookup = false;
+            if (!backendData || !backendData.meta || (
+                (!backendData.meta.manufacturer || backendData.meta.manufacturer === 'Unknown') &&
+                (!backendData.meta.model || backendData.meta.model === 'Unknown') &&
+                (!backendData.meta.registration || backendData.meta.registration === 'Unknown')
+            )) {
+                needsPublicLookup = true;
+                console.log(`🔍 Backend data incomplete, will try public sources`);
+            } else {
+                console.log(`✅ Backend data is complete, no public lookup needed`);
+            }
+
+            if (needsPublicLookup) {
+                console.log(`🌐 Starting public lookup...`);
+                publicData = await fetchPublicAircraftData(icao24);
+                if (publicData) {
+                    console.log(`✅ Public data found:`, publicData);
+                } else {
+                    console.log(`❌ No public data found`);
+                }
+            }
+
+            // Merge public data into backendData if needed
+            if (publicData) {
+                if (!backendData) {
+                    backendData = { icao24: icao24, meta: {} };
+                    console.log(`📝 Created new backendData structure`);
+                }
+                backendData.meta = Object.assign({}, backendData.meta, publicData);
+                console.log(`🔗 Merged public data into backendData:`, backendData.meta);
+            }
+
+            if (backendData) {
+                console.log(`📊 Updating card with final data:`, backendData);
+                updateCardWithDetails(cardElement, backendData);
+            } else {
+                console.log(`❌ No data available, showing error`);
+                updateCardWithError(cardElement);
+            }
+        }
+
+        // Update card with fetched aircraft details
+        function updateCardWithDetails(cardElement, data) {
+            if (!cardElement) return;
+            
+            const detailElements = cardElement.querySelectorAll('.detail-item');
+            
+            // Update Flight Number
+            updateDetailItem(detailElements[0], 'Flight Number:', data.meta?.flightNumber || 'N/A');
+            
+            // Update Manufacturer
+            updateDetailItem(detailElements[1], 'Manufacturer:', data.meta?.manufacturer || 'Unknown');
+            
+            // Update Model
+            updateDetailItem(detailElements[2], 'Model:', data.meta?.model || 'Unknown');
+            
+            // Update Registration
+            updateDetailItem(detailElements[3], 'Registration:', data.meta?.registration || 'Unknown');
+            
+            // Update Registered Owner
+            updateDetailItem(detailElements[4], 'Registered Owner:', data.meta?.operator || 'Unknown');
+            
+            // Update Route
+            let routeText = 'Unknown';
+            if (data.route?.from && data.route?.to) {
+                routeText = `${data.route.from} → ${data.route.to}`;
+                if (data.route.fromName && data.route.toName) {
+                    routeText += ` (${data.route.fromName} → ${data.route.toName})`;
+                }
+            }
+            updateDetailItem(detailElements[5], 'Route:', routeText);
+        }
+
+        // Update a detail item with new value
+        function updateDetailItem(element, label, value) {
+            if (!element) return;
+            
+            const labelElement = element.querySelector('.detail-label');
+            const valueElement = element.querySelector('.detail-value');
+            
+            if (labelElement) labelElement.textContent = label;
+            if (valueElement) {
+                valueElement.textContent = value;
+                valueElement.classList.remove('loading-indicator');
+                if (value === 'Unknown' || value === 'N/A') {
+                    valueElement.classList.add('unknown');
+                }
+            }
+        }
+
+        // Update card when details fetch fails
+        function updateCardWithError(cardElement) {
+            if (!cardElement) return;
+            
+            const detailElements = cardElement.querySelectorAll('.detail-item');
+            
+            // Update all loading indicators to show error (first 6 fields are the ones that load)
+            for (let i = 0; i < 6; i++) {
+                const valueElement = detailElements[i]?.querySelector('.detail-value');
+                if (valueElement && valueElement.classList.contains('loading-indicator')) {
+                    valueElement.textContent = 'Error loading';
+                    valueElement.classList.remove('loading-indicator');
+                    valueElement.classList.add('unknown');
+                }
+            }
+        }
+
+        // Show detailed aircraft information in the sidebar
+        function showAircraftDetails(icao24) {
+            const detailsContainer = document.getElementById('detailedFlightInfo');
+            detailsContainer.innerHTML = '<div class="loading-indicator">Loading enhanced detailed information...</div>';
+            
+            if (typeof icao24 === 'object') {
+                displayAircraftDetails(icao24);
+                return;
+            }
+            
+            fetch(`${BACKEND_URL}/api/aircraft/details?icao24=${icao24}`)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    displayAircraftDetails(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching aircraft details:', error);
+                    detailsContainer.innerHTML = `
+                        <div class="status error">Error loading details: ${error.message}</div>
+                        <p>Could not retrieve enhanced information for this aircraft.</p>
+                    `;
+                });
+        }
+
+        // Display detailed aircraft information
+        function displayAircraftDetails(data) {
+            const detailsContainer = document.getElementById('detailedFlightInfo');
+            
+            // Handle case where data is a raw aircraft object instead of API response
+            if (data.icao24 && !data.meta) {
+                const basicInfo = `
+                    <h2>Aircraft Details</h2>
+                    <div class="aircraft-card">
+                        <div class="aircraft-header">
+                            <div class="aircraft-callsign">${data.callsign || 'Unknown'}</div>
+                            <div class="aircraft-country">${data.country || 'Unknown'}</div>
+                        </div>
+                        
+                        <div class="aircraft-details">
+                            <div class="detail-item">
+                                <span class="detail-label">ICAO24:</span>
+                                <span class="detail-value">${data.icao24}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Altitude:</span>
+                                <span class="detail-value">${data.altitude ? Math.round(data.altitude) + ' ft' : 'Unknown'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Speed:</span>
+                                <span class="detail-value">${data.speed ? Math.round(data.speed) + ' knots' : 'Unknown'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Heading:</span>
+                                <span class="detail-value">${data.heading ? Math.round(data.heading) + '°' : 'Unknown'}</span>
+                            </div>
+                        </div>
+                        
+                        <p class="status">Limited information available. Backend connection may be unavailable.</p>
+                    </div>
+                `;
+                
+                detailsContainer.innerHTML = basicInfo;
+                return;
+            }
+            
+            // Handle API response data
+            const meta = data.meta || {};
+            const route = data.route || {};
+            
+            const detailsHTML = `
+                <h2>Enhanced Aircraft Details</h2>
+                <div class="aircraft-card">
+                    <div class="aircraft-header">
+                        <div class="aircraft-callsign">${meta.callsign || 'Unknown'}</div>
+                        <div class="aircraft-country">${meta.country || 'Unknown'}</div>
+                    </div>
+                    
+                    <div class="aircraft-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Flight Number:</span>
+                            <span class="detail-value">${meta.flightNumber || 'N/A'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Manufacturer:</span>
+                            <span class="detail-value">${meta.manufacturer || 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Model:</span>
+                            <span class="detail-value">${meta.model || 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Registration:</span>
+                            <span class="detail-value">${meta.registration || 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Operator:</span>
+                            <span class="detail-value">${meta.operator || 'Unknown'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="aircraft-details">
+                        <div class="detail-item">
+                            <span class="detail-label">ICAO24:</span>
+                            <span class="detail-value">${data.icao24}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Altitude:</span>
+                            <span class="detail-value">${meta.altitude ? Math.round(meta.altitude) + ' ft' : 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Speed:</span>
+                            <span class="detail-value">${meta.speed ? Math.round(meta.speed) + ' knots' : 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Heading:</span>
+                            <span class="detail-value">${meta.heading ? Math.round(meta.heading) + '°' : 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Vertical Rate:</span>
+                            <span class="detail-value">${meta.verticalRate ? Math.round(meta.verticalRate) + ' ft/min' : 'Unknown'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">On Ground:</span>
+                            <span class="detail-value">${meta.onGround ? 'Yes' : 'No'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="links">
+                        <a href="https://opensky-network.org/aircraft-profile?icao24=${data.icao24}" target="_blank" class="link-btn">
+                            OpenSky Profile
+                        </a>
+                        <a href="https://flightaware.com/live/flight/${meta.callsign}" target="_blank" class="link-btn">
+                            FlightAware
+                        </a>
+                    </div>
+                </div>
+            `;
+            
+            detailsContainer.innerHTML = detailsHTML;
+        }
+
+        // Toggle auto-refresh
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            const intervalInput = document.getElementById('refreshInterval');
+            
+            if (checkbox.checked) {
+                const interval = parseInt(intervalInput.value) * 1000; // Convert seconds to milliseconds
+                searchFlights(); // Immediate search
+                autoRefreshInterval = setInterval(searchFlights, interval);
+                updateStatus(`Auto-refresh enabled (${intervalInput.value}s)`, 'success');
+                
+                // Add a faster initial check for new aircraft
+                setTimeout(() => {
+                    if (checkbox.checked) {
+                        searchFlights(); // Second check after 3 seconds
+                    }
+                }, 3000);
+            } else {
+                clearInterval(autoRefreshInterval);
+                updateStatus('Auto-refresh disabled', '');
+            }
+        }
+
+        // Update refresh interval value
+        function updateRefreshInterval() {
+            const checkbox = document.getElementById('autoRefresh');
+            const intervalInput = document.getElementById('refreshInterval');
+            const interval = parseInt(intervalInput.value);
+            
+            if (interval < 1 || interval > 300) {
+                updateStatus('Please enter a valid interval (1-300 seconds)', 'error');
+                intervalInput.value = '1'; // Reset to default
+                return;
+            }
+            
+            // If auto-refresh is currently enabled, restart it with new interval
+            if (checkbox.checked) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = setInterval(searchFlights, interval * 1000);
+                updateStatus(`Auto-refresh updated to ${interval} seconds`, 'success');
+            }
+        }
+
+        // Global variables
+        let map;
+        let searchCircle;
+        let viewCircle;
+        let centerMarker;
+        let aircraftMarkers = [];
+        let aircraftTrails = {}; // Track aircraft trails
+        let currentFlights = [];
+        let autoRefreshInterval;
+        let previouslySeenAircraft = new Set(); // Track previously seen aircraft
+        const BACKEND_URL = 'http://localhost:5000'; // Flask backend URL
+        
+        // Default location and radius
+        const DEFAULT_LATITUDE = 51.5995;
+        const DEFAULT_LONGITUDE = -0.5545;
+        const DEFAULT_RADIUS = 2; // km
+
+        // Output new aircraft data for external applications
+        function outputNewAircraftData(aircraft, metadata) {
+            const registration = metadata?.registration || 'Unknown';
+            const owner = metadata?.operator || 'Unknown';
+            const manufacturer = metadata?.manufacturer || 'Unknown';
+            const model = metadata?.model || 'Unknown';
+            const altitude = aircraft.altitude ? `${Math.round(aircraft.altitude)} ft` : 'Unknown';
+            const heading = aircraft.heading ? `${Math.round(aircraft.heading)}°` : 'Unknown';
+            
+            const outputData = {
+                timestamp: new Date().toISOString(),
+                icao24: aircraft.icao24,
+                callsign: aircraft.callsign || 'Unknown',
+                registration: registration,
+                registeredOwner: owner,
+                aircraftType: `${manufacturer}: ${model}`,
+                position: `${altitude} | ${heading}`,
+                latitude: aircraft.latitude,
+                longitude: aircraft.longitude,
+                speed: aircraft.speed ? `${Math.round(aircraft.speed)} knots` : 'Unknown',
+                distance: aircraft.distance ? `${aircraft.distance} km` : 'Unknown'
+            };
+            
+            // Output to console for external applications to capture
+            console.log('🆕 NEW AIRCRAFT ENTERED GEOFENCE:', JSON.stringify(outputData, null, 2));
+            
+            // Also output in a clean format for easy parsing
+            console.log(`📋 AIRCRAFT DATA: ${registration} | ${owner} | ${manufacturer}: ${model} | ${altitude} | ${heading}`);
+            
+            // Store in localStorage for persistence (optional)
+            const aircraftLog = JSON.parse(localStorage.getItem('aircraftLog') || '[]');
+            aircraftLog.push(outputData);
+            localStorage.setItem('aircraftLog', JSON.stringify(aircraftLog.slice(-100))); // Keep last 100 entries
+            
+            // Send notification to Vestaboard
+            sendVestaboardNotification(outputData);
+            
+            return outputData;
+        }
+
+        // Check for new aircraft and output their data
+        function checkForNewAircraft(aircraftList) {
+            const currentAircraftIds = new Set();
+            let newAircraftCount = 0;
+            
+            aircraftList.forEach(aircraft => {
+                currentAircraftIds.add(aircraft.icao24);
+                
+                // If this is a new aircraft we haven't seen before
+                if (!previouslySeenAircraft.has(aircraft.icao24)) {
+                    newAircraftCount++;
+                    console.log(`🆕 New aircraft detected: ${aircraft.icao24} (${aircraft.callsign || 'Unknown'})`);
+                    
+                    // Show visual notification
+                    showNewAircraftNotification(aircraft.callsign || aircraft.icao24);
+                    
+                    // Get metadata for this aircraft
+                    getAircraftMetadataForOutput(aircraft.icao24).then(metadata => {
+                        outputNewAircraftData(aircraft, metadata);
+                    });
+                }
+            });
+            
+            // Update status if new aircraft were found
+            if (newAircraftCount > 0) {
+                updateStatus(`Found ${newAircraftCount} new aircraft! Total: ${aircraftList.length}`, 'success');
+            }
+            
+            // Update the set of previously seen aircraft
+            previouslySeenAircraft = currentAircraftIds;
+        }
+        
+        // Show visual notification for new aircraft
+        function showNewAircraftNotification(callsign) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #4CAF50;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 5px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                z-index: 1000;
+                font-weight: bold;
+                animation: slideIn 0.5s ease-out;
+            `;
+            notification.textContent = `🛩️ New Aircraft: ${callsign}`;
+            
+            // Add animation CSS
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Add to page
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.5s ease-in';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 500);
+            }, 3000);
+        }
+
+        // Send notification to Vestaboard
+        async function sendVestaboardNotification(aircraftData) {
+            try {
+                console.log('📺 Sending Vestaboard notification for:', aircraftData.callsign);
+                
+                const response = await fetch(`${BACKEND_URL}/api/vestaboard/notify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        aircraft: aircraftData
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('✅ Vestaboard notification sent successfully:', result.message);
+                } else {
+                    const error = await response.json();
+                    console.log('❌ Vestaboard notification failed:', error.error);
+                }
+            } catch (error) {
+                console.log('❌ Error sending Vestaboard notification:', error);
+            }
+        }
+
+        // Get aircraft metadata for output (simplified version)
+        async function getAircraftMetadataForOutput(icao24) {
+            try {
+                // Try backend first
+                const response = await fetch(`${BACKEND_URL}/api/aircraft/details?icao24=${icao24}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.meta) {
+                        return data.meta;
+                    }
+                }
+            } catch (error) {
+                console.log(`Backend metadata failed for ${icao24}, trying public sources...`);
+            }
+            
+            // Fallback to public sources
+            try {
+                const publicData = await fetchPublicAircraftData(icao24);
+                return publicData;
+            } catch (error) {
+                console.log(`Public metadata failed for ${icao24}`);
+                return null;
+            }
+        }
+
+        // Initialize resizer functionality
+        function initResizer() {
+            const resizer = document.getElementById('resizer');
+            const sidebar = document.querySelector('.sidebar');
+            let isResizing = false;
+            let startX;
+            let startWidth;
+
+            resizer.addEventListener('mousedown', function(e) {
+                isResizing = true;
+                startX = e.clientX;
+                startWidth = sidebar.offsetWidth;
+                
+                // Add resizing class for visual feedback
+                document.body.classList.add('resizing');
+                
+                // Prevent text selection during resize
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!isResizing) return;
+                
+                const deltaX = startX - e.clientX;
+                const newWidth = startWidth + deltaX;
+                
+                // Apply constraints
+                const minWidth = 300;
+                const maxWidth = 600;
+                const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+                
+                sidebar.style.width = constrainedWidth + 'px';
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.classList.remove('resizing');
+                    
+                    // Trigger map resize to ensure proper rendering
+                    if (map) {
+                        map.invalidateSize();
+                    }
+                }
+            });
+
+            // Touch support for mobile devices
+            resizer.addEventListener('touchstart', function(e) {
+                isResizing = true;
+                startX = e.touches[0].clientX;
+                startWidth = sidebar.offsetWidth;
+                document.body.classList.add('resizing');
+                e.preventDefault();
+            });
+
+            document.addEventListener('touchmove', function(e) {
+                if (!isResizing) return;
+                
+                const deltaX = startX - e.touches[0].clientX;
+                const newWidth = startWidth + deltaX;
+                
+                const minWidth = 300;
+                const maxWidth = 600;
+                const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+                
+                sidebar.style.width = constrainedWidth + 'px';
+                e.preventDefault();
+            });
+
+            document.addEventListener('touchend', function() {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.classList.remove('resizing');
+                    
+                    if (map) {
+                        map.invalidateSize();
+                    }
+                }
+            });
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            initCollapsible();
+            initResizer(); // Initialize resizer
+            searchFlights(); // Initial search
+            toggleAutoRefresh(); // Start auto-refresh
+        });
+    </script>
+</body>
+</html> 
