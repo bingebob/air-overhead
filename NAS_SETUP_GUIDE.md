@@ -347,3 +347,57 @@ Once deployed, Air Overhead will:
 - ✅ **Log all activity** for monitoring
 
 Your NAS is now running a production-ready aircraft detection system! 
+
+## 📝 **Commit Current State:**
+
+### **Step 1: Check Current Status**
+```bash
+# Check what files have changed
+git status
+
+# See what changes are staged/unstaged
+git diff
+```
+
+### **Step 2: Add All Changes**
+```bash
+# Add all modified and new files
+git add .
+
+# Or add specific files if you prefer
+git add docker-compose.yml
+git add auto_detection.py
+git add DOCKER_README.md
+git add deploy-to-nas.sh
+git add NAS_SETUP_GUIDE.md
+```
+
+### **Step 3: Commit with Descriptive Message**
+```bash
+# Commit with a descriptive message
+git commit -m "Add Docker support and NAS deployment scripts
+
+- Add Dockerfile and docker-compose.yml for NAS deployment
+- Create deploy-to-nas.sh automated deployment script
+- Add NAS_SETUP_GUIDE.md with detailed instructions
+- Make radius and refresh rate configurable via environment variables
+- Add comprehensive Docker documentation
+- Include troubleshooting and management commands"
+```
+
+### **Step 4: Push to Remote (if using remote repository)**
+```bash
+<code_block_to_apply_changes_from>
+```
+
+## 🔍 **Verify the Commit:**
+
+```bash
+# Check the commit was created
+git log --oneline -5
+
+# Check current status
+git status
+```
+
+**Run these commands and let me know what you see!** This will save your current work before we make any new changes. 
