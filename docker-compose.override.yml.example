@@ -1,0 +1,59 @@
+# Example docker-compose.override.yml
+# Copy this file to docker-compose.override.yml and customize as needed
+
+version: '3.8'
+
+services:
+  air-overhead:
+    # Custom port mapping (if you want to use a different port)
+    ports:
+      - "8080:5000"  # Change 8080 to your preferred port
+    
+    # Add custom environment variables
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+      - FLASK_APP=app.py
+      # Add your custom variables here
+      # - CUSTOM_VAR=value
+    
+    # Add resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    
+    # Add custom labels for monitoring
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.air-overhead.rule=Host(`your-domain.com`)"
+      - "traefik.http.services.air-overhead.loadbalancer.server.port=5000"
+
+  air-overhead-detector:
+    # Disable auto-detection if not needed
+    # profiles:
+    #   - disabled
+    
+    # Customize detection settings
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Air Overhead Configuration - Customize these values
+      - AIR_OVERHEAD_BASE_URL=http://air-overhead:5000
+      - AIR_OVERHEAD_LAT=51.5995      # Your latitude
+      - AIR_OVERHEAD_LON=-0.5545      # Your longitude
+      - AIR_OVERHEAD_RADIUS=10        # Detection radius in km (default: 5)
+      - AIR_OVERHEAD_REFRESH=5        # Refresh interval in seconds (default: 1)
+    
+    # Add resource limits for detector
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1' 

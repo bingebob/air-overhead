@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  air-overhead:
+    build: .
+    container_name: air-overhead
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount configuration files
+      - ./credentials.json:/app/credentials.json:ro
+      - ./aerodatabox_credentials.json:/app/aerodatabox_credentials.json:ro
+      - ./vestaboard_config.json:/app/vestaboard_config.json:ro
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+      - FLASK_APP=app.py
+    networks:
+      - air-overhead-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Auto-detection service (runs separately from main app)
+  air-overhead-detector:
+    build: .
+    container_name: air-overhead-detector
+    restart: unless-stopped
+    volumes:
+      # Mount configuration files
+      - ./credentials.json:/app/credentials.json:ro
+      - ./aerodatabox_credentials.json:/app/aerodatabox_credentials.json:ro
+      - ./vestaboard_config.json:/app/vestaboard_config.json:ro
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Air Overhead Configuration
+      - AIR_OVERHEAD_BASE_URL=http://air-overhead:5000
+      - AIR_OVERHEAD_LAT=51.5995
+      - AIR_OVERHEAD_LON=-0.5545
+      - AIR_OVERHEAD_RADIUS=5
+      - AIR_OVERHEAD_REFRESH=1
+    command: ["python", "auto_detection.py"]
+    depends_on:
+      air-overhead:
+        condition: service_healthy
+    networks:
+      - air-overhead-network
+
+networks:
+  air-overhead-network:
+    driver: bridge
+
+volumes:
+  logs: 

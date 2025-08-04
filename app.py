@@ -539,6 +539,12 @@ def format_flight_notification(aircraft_data):
     altitude = aircraft_data.get('altitude', 0)
     heading = aircraft_data.get('heading', 0)
     
+    # Handle 'N/A' values properly
+    if altitude == 'N/A' or altitude is None:
+        altitude = 0
+    if heading == 'N/A' or heading is None:
+        heading = 0
+    
     # If not found as numbers, try parsing from position string
     if not altitude or not heading:
         position_str = aircraft_data.get('position', '')
@@ -555,6 +561,8 @@ def format_flight_notification(aircraft_data):
     
     # Try to get speed from different possible sources
     speed = aircraft_data.get('speed', 0)
+    if speed == 'N/A' or speed is None:
+        speed = 0
     if isinstance(speed, str):
         try:
             speed = int(speed.split()[0])
@@ -577,31 +585,42 @@ def format_flight_notification(aircraft_data):
                 model = aircraft_type_str
     
     registration = aircraft_data.get('registration', '')
-    # Based on console output, the field is 'registeredOwner'
-    operator = aircraft_data.get('registeredOwner', '')
-    owner = aircraft_data.get('registeredOwner', '')
+    # Check for operator in multiple possible field names
+    operator = aircraft_data.get('operator', '') or aircraft_data.get('registeredOwner', '')
+    owner = aircraft_data.get('owner', '') or aircraft_data.get('registeredOwner', '')
     country = aircraft_data.get('country', '')
     
     # Format altitude, speed, and heading (0 decimal places)
-    alt_str = f"{int(altitude):,} ft" if altitude else "N/A"
-    speed_str = f"{int(speed)} knots" if speed else "N/A"
-    heading_str = f"{int(heading)}°" if heading else "N/A"
+    try:
+        alt_str = f"{int(altitude):,} ft" if altitude and altitude != 'N/A' else "N/A"
+    except (ValueError, TypeError):
+        alt_str = "N/A"
+    
+    try:
+        speed_str = f"{int(speed)} knots" if speed and speed != 'N/A' else "N/A"
+    except (ValueError, TypeError):
+        speed_str = "N/A"
+    
+    try:
+        heading_str = f"{int(heading)}°" if heading and heading != 'N/A' else "N/A"
+    except (ValueError, TypeError):
+        heading_str = "N/A"
     
     # Create aircraft type string
-    if manufacturer and model:
+    if manufacturer and model and manufacturer != 'N/A' and model != 'N/A':
         aircraft_type = f"{manufacturer} {model}".replace("  ", " ").strip()
-    elif manufacturer:
+    elif manufacturer and manufacturer != 'N/A':
         aircraft_type = manufacturer
-    elif model:
+    elif model and model != 'N/A':
         aircraft_type = model
     else:
         aircraft_type = "Unknown"
     
     # Create owner/operator string (prioritize operator, then owner)
     owner_operator = ""
-    if operator:
+    if operator and operator != 'N/A':
         owner_operator = operator
-    elif owner:
+    elif owner and owner != 'N/A':
         owner_operator = owner
     
     # Truncate long strings to fit display (22 characters max)
