@@ -623,6 +623,16 @@ def format_flight_notification(aircraft_data):
     elif owner and owner != 'N/A':
         owner_operator = owner
     
+    # Add airline-specific formatting with colored chips
+    if owner_operator:
+        owner_operator_upper = owner_operator.upper()
+        if owner_operator_upper == "BRITISH AIRWAYS":
+            # Add blue chip + red chip for British Airways
+            owner_operator = f"{owner_operator} 🔵🔴"
+        elif "EASYJET" in owner_operator_upper:
+            # Add orange chip + orange chip for EasyJet
+            owner_operator = f"{owner_operator} 🟠🟠"
+    
     # Truncate long strings to fit display (22 characters max)
     callsign = callsign[:22] if len(callsign) > 22 else callsign
     registration = registration[:22] if len(registration) > 22 else registration
